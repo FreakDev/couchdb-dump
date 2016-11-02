@@ -30,6 +30,7 @@ usage(){
     echo -e "\t-r   Run script in RESTORE mode."
     echo -e "\t-H   CouchDB Hostname or IP. Can be provided with or without 'http(s)://'"
     echo -e "\t-d   CouchDB Database name to backup/restore."
+    echo -e "\t-D   Export only design documents"
     echo -e "\t-f   File to Backup-to/Restore-from."
     echo -e "\t-P   Provide a port number for CouchDB [Default: 5984]"
     echo -e "\t-u   Provide a username for auth against CouchDB [Default: blank]"
@@ -101,8 +102,9 @@ port=5984
 OPTIND=1
 lines=5000
 attempts=3
+design_only=false
 
-while getopts ":h?H:d:f:u:p:P:l:t:a:V?b?B?r?R?" opt; do
+while getopts ":h?H:d:D:f:u:p:P:l:t:a:V?b?B?r?R?" opt; do
     case "$opt" in
         h) usage;;
         b|B) backup=true ;;
@@ -116,7 +118,8 @@ while getopts ":h?H:d:f:u:p:P:l:t:a:V?b?B?r?R?" opt; do
         l) lines="${OPTARG}" ;;
         t) threads="${OPTARG}" ;;
         a) attempts="${OPTARG}";;
-        V) scriptversion;;        
+        V) scriptversion;;
+        D) design_only=true;;       
         :) echo "... ERROR: Option \"-${OPTARG}\" requires an argument"; usage ;;
         *|\?) echo "... ERROR: Unknown Option \"-${OPTARG}\""; usage;;
     esac
@@ -255,8 +258,13 @@ if [ $backup = true ]&&[ $restore = false ]; then
         exit 1
     fi
 
+    query_string=""
+    if [ design_only = true ]; then
+        query_string="&startkey=%22_design/%22&endkey=%22_design0%22"
+    fi
+
     # Grab our data from couchdb
-    curl ${curlopt} -X GET "$url/$db_name/_all_docs?include_docs=true&attachments=true" -o ${file_name}
+    curl ${curlopt} -X GET "$url/$db_name/_all_docs?include_docs=true&attachments=true$query_string" -o ${file_name}
     # Check for curl errors
     if [ ! $? = 0 ]; then
         echo "... ERROR: Curl encountered an issue whilst dumping the database."
